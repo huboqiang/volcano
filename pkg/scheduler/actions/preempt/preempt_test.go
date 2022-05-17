@@ -33,12 +33,15 @@ import (
 	"volcano.sh/volcano/pkg/scheduler/framework"
 	"volcano.sh/volcano/pkg/scheduler/plugins/conformance"
 	"volcano.sh/volcano/pkg/scheduler/plugins/gang"
+	"volcano.sh/volcano/pkg/scheduler/plugins/priority"
 	"volcano.sh/volcano/pkg/scheduler/util"
 )
 
 func TestPreempt(t *testing.T) {
 	framework.RegisterPluginBuilder("conformance", conformance.New)
 	framework.RegisterPluginBuilder("gang", gang.New)
+	framework.RegisterPluginBuilder(priority.PluginName, priority.New)
+
 	options.ServerOpts = &options.ServerOption{
 		MinNodesToFind:             100,
 		MinPercentageOfNodesToFind: 5,
@@ -253,6 +256,91 @@ func TestPreempt(t *testing.T) {
 			},
 			expected: 2,
 		},
+		{
+			name: "preempt task with lowest priority in different nodes",
+			podGroups: []*schedulingv1beta1.PodGroup{
+				{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "pg1",
+						Namespace: "c1",
+					},
+					Spec: schedulingv1beta1.PodGroupSpec{
+						MinMember:         0,
+						Queue:             "q1",
+						PriorityClassName: "low-priority",
+					},
+					Status: schedulingv1beta1.PodGroupStatus{
+						Phase: schedulingv1beta1.PodGroupInqueue,
+					},
+				},
+				{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "pg2",
+						Namespace: "c1",
+					},
+					Spec: schedulingv1beta1.PodGroupSpec{
+						MinMember:         0,
+						Queue:             "q1",
+						PriorityClassName: "mid-priority",
+					},
+					Status: schedulingv1beta1.PodGroupStatus{
+						Phase: schedulingv1beta1.PodGroupInqueue,
+					},
+				},
+				{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "pg3",
+						Namespace: "c1",
+					},
+					Spec: schedulingv1beta1.PodGroupSpec{
+						MinMember:         0,
+						Queue:             "q1",
+						PriorityClassName: "high-priority",
+					},
+					Status: schedulingv1beta1.PodGroupStatus{
+						Phase: schedulingv1beta1.PodGroupInqueue,
+					},
+				},
+				{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "pg4",
+						Namespace: "c1",
+					},
+					Spec: schedulingv1beta1.PodGroupSpec{
+						MinMember:         1,
+						Queue:             "q1",
+						PriorityClassName: "high-priority",
+					},
+					Status: schedulingv1beta1.PodGroupStatus{
+						Phase: schedulingv1beta1.PodGroupInqueue,
+					},
+				},
+			},
+			// There are 3 cpus and 3G of memory idle and 3 tasks running each consuming 1 cpu and 1G of memory.
+			// Big task requiring 5 cpus and 5G of memory should preempt 2 of 3 running tasks to fit into the node.
+			pods: []*v1.Pod{
+				util.BuildPod("c1", "preemptee1", "n1", v1.PodRunning, util.BuildResourceList("1", "1G"), "pg3", map[string]string{schedulingv1beta1.PodPreemptable: "true"}, make(map[string]string)),
+				util.BuildPod("c1", "preemptee2", "n2", v1.PodRunning, util.BuildResourceList("1", "1G"), "pg2", map[string]string{schedulingv1beta1.PodPreemptable: "true"}, make(map[string]string)),
+				util.BuildPod("c1", "preemptee3", "n3", v1.PodRunning, util.BuildResourceList("1", "1G"), "pg1", map[string]string{schedulingv1beta1.PodPreemptable: "true"}, make(map[string]string)),
+				util.BuildPod("c1", "preemptor1", "", v1.PodPending, util.BuildResourceList("6", "6G"), "pg4", make(map[string]string), make(map[string]string)),
+			},
+			nodes: []*v1.Node{
+				util.BuildNode("n1", util.BuildResourceList("6", "6G"), make(map[string]string)),
+				util.BuildNode("n2", util.BuildResourceList("6", "6G"), make(map[string]string)),
+				util.BuildNode("n3", util.BuildResourceList("6", "6G"), make(map[string]string)),
+			},
+			queues: []*schedulingv1beta1.Queue{
+				{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "q1",
+					},
+					Spec: schedulingv1beta1.QueueSpec{
+						Weight: 1,
+					},
+				},
+			},
+			expected: 1,
+		},
 	}
 
 	preempt := New()
@@ -281,6 +369,9 @@ func TestPreempt(t *testing.T) {
 			schedulerCache.PriorityClasses["high-priority"] = &schedulingv1.PriorityClass{
 				Value: 100000,
 			}
+			schedulerCache.PriorityClasses["mid-priority"] = &schedulingv1.PriorityClass{
+				Value: 1000,
+			}
 			schedulerCache.PriorityClasses["low-priority"] = &schedulingv1.PriorityClass{
 				Value: 10,
 			}
@@ -306,6 +397,12 @@ func TestPreempt(t *testing.T) {
 						{
 							Name:               "conformance",
 							EnabledPreemptable: &trueValue,
+						},
+						{
+							Name:               priority.PluginName,
+							EnabledNodeOrder:   &trueValue,
+							EnabledPreemptable: &trueValue,
+							EnabledJobOrder:    &trueValue,
 						},
 						{
 							Name:                "gang",
