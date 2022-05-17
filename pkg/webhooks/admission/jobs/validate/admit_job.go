@@ -33,17 +33,28 @@ import (
 	k8scorev1 "k8s.io/kubernetes/pkg/apis/core/v1"
 	v1qos "k8s.io/kubernetes/pkg/apis/core/v1/helper/qos"
 	k8scorevalid "k8s.io/kubernetes/pkg/apis/core/validation"
+	"k8s.io/kubernetes/pkg/capabilities"
 
 	"volcano.sh/apis/pkg/apis/batch/v1alpha1"
 	schedulingv1beta1 "volcano.sh/apis/pkg/apis/scheduling/v1beta1"
+	"volcano.sh/volcano/pkg/controllers/job/helpers"
 	jobhelpers "volcano.sh/volcano/pkg/controllers/job/helpers"
 	"volcano.sh/volcano/pkg/controllers/job/plugins"
+	controllerMpi "volcano.sh/volcano/pkg/controllers/job/plugins/distributed-framework/mpi"
 	"volcano.sh/volcano/pkg/webhooks/router"
 	"volcano.sh/volcano/pkg/webhooks/schema"
 	"volcano.sh/volcano/pkg/webhooks/util"
 )
 
 func init() {
+	capabilities.Initialize(capabilities.Capabilities{
+		AllowPrivileged: true,
+		PrivilegedSources: capabilities.PrivilegedSources{
+			HostNetworkSources: []string{},
+			HostPIDSources:     []string{},
+			HostIPCSources:     []string{},
+		},
+	})
 	router.RegisterAdmission(service)
 }
 
@@ -130,6 +141,20 @@ func validateJobCreate(job *v1alpha1.Job, reviewResponse *admissionv1.AdmissionR
 	if len(job.Spec.Tasks) == 0 {
 		reviewResponse.Allowed = false
 		return "No task specified in job spec"
+	}
+
+	if _, ok := job.Spec.Plugins[controllerMpi.MpiPluginName]; ok {
+		mp := controllerMpi.NewInstance(job.Spec.Plugins[controllerMpi.MpiPluginName])
+		masterIndex := helpers.GetTasklndexUnderJob(mp.GetMasterName(), job)
+		workerIndex := helpers.GetTasklndexUnderJob(mp.GetWorkerName(), job)
+		if masterIndex == -1 {
+			reviewResponse.Allowed = false
+			return "The specified mpi master task was not found"
+		}
+		if workerIndex == -1 {
+			reviewResponse.Allowed = false
+			return "The specified mpi worker task was not found"
+		}
 	}
 
 	hasDependenciesBetweenTasks := false
@@ -283,19 +308,6 @@ func validateTaskTemplate(task v1alpha1.TaskSpec, job *v1alpha1.Job, index int) 
 
 	var coreTemplateSpec k8score.PodTemplateSpec
 	k8scorev1.Convert_v1_PodTemplateSpec_To_core_PodTemplateSpec(&v1PodTemplate.Template, &coreTemplateSpec, nil)
-
-	// Skip verify container SecurityContex.Privileged as it depends on
-	// the kube-apiserver `allow-privileged` flag.
-	for i, container := range coreTemplateSpec.Spec.InitContainers {
-		if container.SecurityContext != nil && container.SecurityContext.Privileged != nil {
-			coreTemplateSpec.Spec.InitContainers[i].SecurityContext.Privileged = nil
-		}
-	}
-	for i, container := range coreTemplateSpec.Spec.Containers {
-		if container.SecurityContext != nil && container.SecurityContext.Privileged != nil {
-			coreTemplateSpec.Spec.Containers[i].SecurityContext.Privileged = nil
-		}
-	}
 
 	corePodTemplate := k8score.PodTemplate{
 		ObjectMeta: metav1.ObjectMeta{
