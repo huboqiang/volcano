@@ -2,6 +2,8 @@ package enhancepreemption
 
 import (
 	v1 "k8s.io/api/core/v1"
+
+	"volcano.sh/volcano/pkg/scheduler/api"
 )
 
 const maxQueueSize int = 10
@@ -15,8 +17,9 @@ func intMin(a int, b int) int {
 }
 
 type preempteePodInfo struct {
-	res  v1.ResourceList
-	cost float64
+	taskId api.TaskID
+	res    v1.ResourceList
+	cost   float64
 }
 
 type queueElem struct {
@@ -35,14 +38,11 @@ type astarElem struct {
 
 func resourceToInt(res v1.ResourceList) [3]int64 {
 	result := [3]int64{0, 0, 0}
-	cpu, ok1 := res.Cpu().AsInt64()
-	if ok1 {
-		result[0] = cpu
-	}
-	mem, ok2 := res.Memory().AsInt64()
-	if ok2 {
-		result[1] = mem / 1000000000
-	}
+	cpu := res.Cpu().Value()
+	result[0] = cpu
+
+	mem := res.Memory().Value()
+	result[1] = mem / (1000 * 1000 * 1000)
 
 	v, ok3 := res["nvidia.com/gpu"]
 	gpu := v.AsApproximateFloat64()

@@ -21,6 +21,7 @@ import (
 	"volcano.sh/volcano/pkg/scheduler/plugins/binpack"
 	"volcano.sh/volcano/pkg/scheduler/plugins/conformance"
 	"volcano.sh/volcano/pkg/scheduler/plugins/drf"
+	"volcano.sh/volcano/pkg/scheduler/plugins/enhancepreemption"
 	"volcano.sh/volcano/pkg/scheduler/plugins/extender"
 	"volcano.sh/volcano/pkg/scheduler/plugins/gang"
 	"volcano.sh/volcano/pkg/scheduler/plugins/nodeorder"
@@ -53,6 +54,7 @@ func init() {
 	framework.RegisterPluginBuilder(numaaware.PluginName, numaaware.New)
 	framework.RegisterPluginBuilder(rescheduling.PluginName, rescheduling.New)
 	framework.RegisterPluginBuilder(usage.PluginName, usage.New)
+	framework.RegisterPluginBuilder(enhancepreemption.PluginName, enhancepreemption.New)
 
 	// Plugins for Queues
 	framework.RegisterPluginBuilder(proportion.PluginName, proportion.New)

@@ -2,15 +2,18 @@ package enhancepreemption
 
 import (
 	"fmt"
-	v1 "k8s.io/api/core/v1"
 	"math"
 	"reflect"
 	"testing"
+
+	v1 "k8s.io/api/core/v1"
+
 	"volcano.sh/volcano/pkg/scheduler/util"
 )
 
 func makeRepeatPods(n int, cost float64, cpu string, mem string, gpu string) []preempteePodInfo {
 	pod := preempteePodInfo{
+		"",
 		util.BuildResourceListWithGPU(cpu, mem, gpu),
 		cost,
 	}
@@ -39,22 +42,27 @@ func Test_NodePreemptionSolver(t *testing.T) {
 				util.BuildResourceListWithGPU("5", "10G", "0"),
 				[]preempteePodInfo{
 					{
+						"",
 						util.BuildResourceListWithGPU("1", "2G", "0"),
 						1,
 					},
 					{
+						"",
 						util.BuildResourceListWithGPU("1", "2G", "0"),
 						4,
 					},
 					{
+						"",
 						util.BuildResourceListWithGPU("2", "4G", "0"),
 						6,
 					},
 					{
+						"",
 						util.BuildResourceListWithGPU("2", "4G", "0"),
 						9,
 					},
 					{
+						"",
 						util.BuildResourceListWithGPU("6", "12G", "0"),
 						17,
 					},
@@ -71,22 +79,27 @@ func Test_NodePreemptionSolver(t *testing.T) {
 				util.BuildResourceListWithGPU("5", "10G", "0"),
 				[]preempteePodInfo{
 					{
+						"",
 						util.BuildResourceListWithGPU("1", "2G", "0"),
 						1,
 					},
 					{
+						"",
 						util.BuildResourceListWithGPU("1", "2G", "0"),
 						4,
 					},
 					{
+						"",
 						util.BuildResourceListWithGPU("2", "4G", "0"),
 						6,
 					},
 					{
+						"",
 						util.BuildResourceListWithGPU("2", "4G", "0"),
 						9,
 					},
 					{
+						"",
 						util.BuildResourceListWithGPU("6", "12G", "0"),
 						15,
 					},
@@ -103,22 +116,27 @@ func Test_NodePreemptionSolver(t *testing.T) {
 				util.BuildResourceListWithGPU("5", "10G", "0"),
 				[]preempteePodInfo{
 					{
+						"",
 						util.BuildResourceListWithGPU("1", "2G", "0"),
 						1,
 					},
 					{
+						"",
 						util.BuildResourceListWithGPU("1", "2G", "0"),
 						4,
 					},
 					{
+						"",
 						util.BuildResourceListWithGPU("2", "4G", "0"),
 						6,
 					},
 					{
+						"",
 						util.BuildResourceListWithGPU("2", "4G", "0"),
 						9,
 					},
 					{
+						"",
 						util.BuildResourceListWithGPU("6", "12G", "0"),
 						16,
 					},
@@ -145,10 +163,12 @@ func Test_NodePreemptionSolver(t *testing.T) {
 				util.BuildResourceListWithGPU("15", "30G", "0"),
 				[]preempteePodInfo{
 					{
+						"",
 						util.BuildResourceListWithGPU("1", "2G", "0"),
 						1,
 					},
 					{
+						"",
 						util.BuildResourceListWithGPU("2", "4G", "0"),
 						2,
 					},
@@ -164,10 +184,12 @@ func Test_NodePreemptionSolver(t *testing.T) {
 				util.BuildResourceListWithGPU("1", "2G", "1"),
 				[]preempteePodInfo{
 					{
+						"",
 						util.BuildResourceListWithGPU("1", "2G", "0"),
 						1,
 					},
 					{
+						"",
 						util.BuildResourceListWithGPU("2", "4G", "0"),
 						2,
 					},
@@ -183,10 +205,12 @@ func Test_NodePreemptionSolver(t *testing.T) {
 				util.BuildResourceListWithGPU("1", "7G", "0.8"),
 				[]preempteePodInfo{
 					{
+						"",
 						util.BuildResourceListWithGPU("1", "1G", "0"),
 						1,
 					},
 					{
+						"",
 						util.BuildResourceListWithGPU("2", "1G", "0.5"),
 						20,
 					},
@@ -202,10 +226,12 @@ func Test_NodePreemptionSolver(t *testing.T) {
 				util.BuildResourceListWithGPU("1", "7G", "0.5"),
 				[]preempteePodInfo{
 					{
+						"",
 						util.BuildResourceListWithGPU("1", "1G", "0"),
 						1,
 					},
 					{
+						"",
 						util.BuildResourceListWithGPU("2", "1G", "0.5"),
 						20,
 					},
@@ -221,10 +247,12 @@ func Test_NodePreemptionSolver(t *testing.T) {
 				util.BuildResourceListWithGPU("1", "7G", "0.8"),
 				[]preempteePodInfo{
 					{
+						"",
 						util.BuildResourceListWithGPU("1", "2G", "0"),
 						1,
 					},
 					{
+						"",
 						util.BuildResourceListWithGPU("2", "1G", "0.5"),
 						20,
 					},
