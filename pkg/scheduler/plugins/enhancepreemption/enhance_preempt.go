@@ -18,6 +18,7 @@ import (
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	"k8s.io/klog"
+	"math"
 	"time"
 
 	"volcano.sh/volcano/pkg/scheduler/api"
@@ -95,7 +96,7 @@ func getTaskCost(ssn *framework.Session, task *api.TaskInfo) float64 {
 		}
 	}
 
-	return -1 * cost
+	return math.MaxFloat64 - cost
 }
 
 type nodeInfo struct {
@@ -118,10 +119,14 @@ func (pp *enhancePreemptionPlugin) OnSessionOpen(ssn *framework.Session) {
 		order, cost := NodePreemptionSolver(getTaskRes(preemptor), preempteeInfo, node.Node.Status.Allocatable)
 		for orderVal, idx := range order {
 			taskId := preempteeInfo[idx].taskId
-			task := node.Tasks[taskId]
-			task.Pod.Annotations[taskOrder] = fmt.Sprintf("%04d", orderVal)
+			task, ok := node.Tasks[taskId]
+			if task != nil && ok {
+				if task.Pod.ObjectMeta.Annotations == nil {
+					task.Pod.ObjectMeta.Annotations = make(map[string]string, 0)
+				}
+				task.Pod.ObjectMeta.Annotations[taskOrder] = fmt.Sprintf("%04d", orderVal)
+			}
 		}
-		fmt.Println(node.Name, order, cost, preempteeInfo)
 		return cost, nil
 	}
 
@@ -131,11 +136,11 @@ func (pp *enhancePreemptionPlugin) OnSessionOpen(ssn *framework.Session) {
 	taskOrderFn := func(l interface{}, r interface{}) int {
 		lv := l.(*api.TaskInfo)
 		rv := r.(*api.TaskInfo)
-		rankL, okL := lv.Pod.Annotations[taskOrder]
+		rankL, okL := lv.Pod.ObjectMeta.Annotations[taskOrder]
 		if !okL {
 			rankL = "9999"
 		}
-		rankR, okR := rv.Pod.Annotations[taskOrder]
+		rankR, okR := rv.Pod.ObjectMeta.Annotations[taskOrder]
 		if !okR {
 			rankR = "9999"
 		}
@@ -207,7 +212,6 @@ func (pp *enhancePreemptionPlugin) OnSessionOpen(ssn *framework.Session) {
 
 	jobStarvingFn := func(obj interface{}) bool {
 		ji := obj.(*api.JobInfo)
-		fmt.Println(ji.ReadyTaskNum(), ji.WaitingTaskNum(), int32(len(ji.Tasks)))
 		return ji.ReadyTaskNum()+ji.WaitingTaskNum() < int32(len(ji.Tasks))
 	}
 	ssn.AddJobStarvingFns(pp.Name(), jobStarvingFn)

@@ -1,12 +1,10 @@
 package enhancepreemption
 
 import (
-	"fmt"
 	"math"
 )
 
 func bfsNodePreemptionCore(preemptor [3]int64, preemptees [][3]int64, costs []float64, node [3]int64) ([]int, float64) {
-	fmt.Println(preemptor, preemptees, costs, node)
 	bfsQueue, isEnough := initBfsQueue(node, preemptor, preemptees, costs)
 	if isEnough {
 		return []int{}, 0
@@ -46,8 +44,6 @@ func bfsNodePreemptionCore(preemptor [3]int64, preemptees [][3]int64, costs []fl
 		}
 		bfsQueue = newQueue
 	}
-
-	fmt.Println("Got:", bestElem)
 	return bestElem.idxPath, bestElem.gxCost
 }
 
